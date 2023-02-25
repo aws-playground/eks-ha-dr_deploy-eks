@@ -1,0 +1,98 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-peccy-app
+  labels:
+    app: service-peccy-app
+spec:
+  replicas: 6
+  selector:
+    matchLabels:
+      app: service-peccy-app
+  template:
+    metadata:
+      labels:
+        app: service-peccy-app
+    spec:
+      nodeSelector:
+        type: service
+      containers:
+      - name: service-peccy-app
+        image: ghcr.io/ssup2-playground/service-peccy-app:0.1.3
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        env:
+        - name: MYSQL_DB_NAME
+          value: peccy
+        - name: MYSQL_USER
+          value: admin
+        - name: MYSQL_PASSWORD
+          value: adminadmin
+        - name: MYSQL_PORT
+          value: "3306"
+        - name: AWS_REGION
+          value: Tyoko
+        - name: MYSQL_URL
+          value: eks-ha-single-cluster.cluster-cwsi4yexgoc1.us-east-2.rds.amazonaws.com
+        volumeMounts:
+        - name: efs
+          mountPath: /app/assets
+      volumes:
+        - name: efs
+          persistentVolumeClaim:
+            claimName: efs-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-peccy-app
+spec:
+  type: NodePort
+  selector:
+    app: service-peccy-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: service-peccy-app
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "5"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "3"
+    external-dns.alpha.kubernetes.io/alias: "true"
+spec:
+  ingressClassName: alb
+  rules:
+  - host: service-peccy-api.eks-ha-single.test
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service-peccy-app
+            port:
+              number: 80
