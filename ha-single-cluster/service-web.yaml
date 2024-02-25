@@ -17,6 +17,13 @@ spec:
     spec:
       nodeSelector:
         type: service
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: service-peccy-web
       containers:
       - name: service-peccy-web
         image: ghcr.io/ssup2-playground/service-peccy-web:0.1.2
